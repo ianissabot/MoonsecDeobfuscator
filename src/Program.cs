@@ -1,54 +1,102 @@
-﻿using MoonsecDeobfuscator.Deobfuscation;
+using Discord;
+using Discord.WebSocket;
+using MoonsecDeobfuscator.Deobfuscation;
 using MoonsecDeobfuscator.Deobfuscation.Bytecode;
 
-namespace MoonsecDeobfuscator;
-
-public static class Program
+namespace MoonsecDeobfuscator
 {
-    /*
-        Devirtualize and dump bytecode to file:
-            -dev -i <path to input> -o <path to output>
-
-        Devirtualize and dump bytecode disassembly to file:
-            -dis -i <path to input> -o <path to output>
-    */
-
-    static void Main(string[] args)
+    public class Program
     {
-        if (args.Length != 5 || args[1] != "-i" || args[3] != "-o")
+        private DiscordSocketClient _client;
+
+        public static void Main(string[] args)
+            => new Program().RunBotAsync().GetAwaiter().GetResult();
+
+        public async Task RunBotAsync()
         {
-            Console.WriteLine("Usage:");
-            Console.WriteLine("Devirtualize and dump bytecode to file:\n\t-dev -i <input> -o <output>");
-            Console.WriteLine("Devirtualize and dump bytecode disassembly to file:\n\t-dis -i <input> -o <output>");
-            return;
+            _client = new DiscordSocketClient();
+
+            _client.Log += LogAsync;
+            _client.Ready += Client_Ready;
+            _client.MessageReceived += MessageReceivedAsync;
+
+            // Read the token from the Environment Variable set on your host
+            var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN");
+            if (string.IsNullOrEmpty(token))
+            {
+                Console.WriteLine("Error: DISCORD_TOKEN environment variable not set.");
+                return;
+            }
+
+            await _client.LoginAsync(TokenType.Bot, token);
+            await _client.StartAsync();
+
+            // Keeps the bot running
+            await Task.Delay(Timeout.Infinite);
         }
 
-        var command = args[0];
-        var input = args[2];
-        var output = args[4];
-
-        if (!File.Exists(input))
+        private Task LogAsync(LogMessage log)
         {
-            Console.WriteLine("Invalid input path!");
-            return;
+            Console.WriteLine(log.ToString());
+            return Task.CompletedTask;
         }
 
-        if (command == "-dev")
+        private Task Client_Ready()
         {
-            var result = new Deobfuscator().Deobfuscate(File.ReadAllText(input));
-            using var stream = new FileStream(output, FileMode.Create, FileAccess.Write);
-            using var serializer = new Serializer(stream);
+            Console.WriteLine($"Bot is connected as: {_client.CurrentUser.Username}");
+            return Task.CompletedTask;
+        }
 
-            serializer.Serialize(result);
-        }
-        else if (command == "-dis")
+        private async Task MessageReceivedAsync(SocketMessage message)
         {
-            var result = new Deobfuscator().Deobfuscate(File.ReadAllText(input));
-            File.WriteAllText(output, new Disassembler(result).Disassemble());
-        }
-        else
-        {
-            Console.WriteLine("Invalid command!");
+            // Ignore bot and system messages
+            if (message.Author.IsBot || message.Author.IsWebhook) return;
+            
+            // Command check: Use !deobf followed by the script content
+            if (message.Content.StartsWith("!deobf "))
+            {
+                await message.Channel.TriggerTypingAsync(); // Shows "Bot is typing..."
+
+                var scriptContent = message.Content.Substring("!deobf ".Length).Trim();
+                
+                if (string.IsNullOrEmpty(scriptContent))
+                {
+                    await message.Channel.SendMessageAsync("Please paste the Lua script content after the `!deobf` command.");
+                    return;
+                }
+
+                // Define a temporary filename for the output file
+                var tempFilePath = Path.Combine(Path.GetTempPath(), $"deobfuscated_{message.Id}.lua");
+                
+                try
+                {
+                    // 1. Run the Deobfuscation Logic
+                    var result = new Deobfuscator().Deobfuscate(scriptContent);
+                    
+                    // 2. Write the disassembly result to the temporary file
+                    string disassembledCode = new Disassembler(result).Disassemble();
+                    File.WriteAllText(tempFilePath, disassembledCode);
+
+                    // 3. Upload the file to Discord
+                    await message.Channel.SendFileAsync(
+                        filePath: tempFilePath,
+                        text: $"✅ **Deobfuscation complete** for {message.Author.Mention}. The result is attached below:"
+                    );
+                }
+                catch (Exception ex)
+                {
+                    // Send an error message if the deobfuscation or file writing fails
+                    await message.Channel.SendMessageAsync($"⚠️ An error occurred during deobfuscation: ```{ex.Message}```");
+                }
+                finally
+                {
+                    // 4. CLEAN UP: Delete the temporary file from the server
+                    if (File.Exists(tempFilePath))
+                    {
+                        File.Delete(tempFilePath);
+                    }
+                }
+            }
         }
     }
 }
