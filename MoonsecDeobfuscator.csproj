@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -11,6 +11,7 @@
     <PackageReference Include="Antlr4.Runtime.Standard" Version="4.13.1" />
     <PackageReference Include="NLua" Version="1.7.6" />
     <PackageReference Include="QuikGraph" Version="2.5.0" />
+    <PackageReference Include="Discord.Net" Version="3.15.2" />
   </ItemGroup>
 
 </Project>
