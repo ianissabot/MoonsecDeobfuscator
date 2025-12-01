@@ -1,4 +1,4 @@
-﻿using System.Text;
+public class Disassembler
 using MoonsecDeobfuscator.Bytecode.Models;
 
 namespace MoonsecDeobfuscator.Deobfuscation.Bytecode;
