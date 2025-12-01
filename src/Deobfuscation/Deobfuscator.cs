@@ -1,4 +1,4 @@
-﻿using System.Text;
+public class Deobfuscator
 using MoonsecDeobfuscator.Ast;
 using MoonsecDeobfuscator.Ast.Literals;
 using MoonsecDeobfuscator.Ast.Statements;
