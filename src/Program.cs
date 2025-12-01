@@ -1,3 +1,4 @@
+using Discord.Interactions;
 using Discord;
 using Discord.WebSocket;
 using MoonsecDeobfuscator.Deobfuscation;
@@ -13,27 +14,38 @@ namespace MoonsecDeobfuscator
             => new Program().RunBotAsync().GetAwaiter().GetResult();
 
         public async Task RunBotAsync()
-        {
-            _client = new DiscordSocketClient();
+{
+    _client = new DiscordSocketClient();
 
-            _client.Log += LogAsync;
-            _client.Ready += Client_Ready;
-            _client.MessageReceived += MessageReceivedAsync;
+    _client.Log   += LogAsync;
+    _client.Ready += Client_Ready;
 
-            // Read the token from the Environment Variable set on your host
-            var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN");
-            if (string.IsNullOrEmpty(token))
-            {
-                Console.WriteLine("Error: DISCORD_TOKEN environment variable not set.");
-                return;
-            }
+    var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN");
+    if (string.IsNullOrEmpty(token))
+    {
+        Console.WriteLine("Error: DISCORD_TOKEN environment variable not set.");
+        return;
+    }
 
-            await _client.LoginAsync(TokenType.Bot, token);
-            await _client.StartAsync();
+    await _client.LoginAsync(TokenType.Bot, token);
+    await _client.StartAsync();
 
-            // Keeps the bot running
-            await Task.Delay(Timeout.Infinite);
-        }
+    /* ===  NEW LINES  === */
+    var interactions = new InteractionService(_client.Rest);
+    await interactions.AddModuleAsync<SlashModule>(null);   // registers /deobfuscate
+
+    _client.InteractionCreated += async (i) =>
+    {
+        var ctx = new SocketInteractionContext(_client, i);
+        await interactions.ExecuteCommandAsync(ctx, null);
+    };
+
+    await interactions.RegisterCommandsGloballyAsync();     // publish slash command
+    /* =================== */
+
+    await Task.Delay(Timeout.Infinite);
+}
+
 
         private Task LogAsync(LogMessage log)
         {
