@@ -20,7 +20,7 @@ namespace MoonsecDeobfuscator
     _client.Log   += LogAsync;
     _client.Ready += Client_Ready;
 
-    var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN");
+    var token = "YOUR-BOT-TOKEN-HERE";
     if (string.IsNullOrEmpty(token))
     {
         Console.WriteLine("Error: DISCORD_TOKEN environment variable not set.");
